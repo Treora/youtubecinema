@@ -1,0 +1,16 @@
+{
+    "name": "YoutubeCinema",
+    "version": "1.0",
+    "background": {
+        "scripts": ["background.js"]
+    },
+    "permissions": [
+        "*://*.youtube.com/*",
+        "webRequest",
+        "webRequestBlocking"
+    ],
+    "applications": {
+        "gecko": {"id": "youtubecinema@youtubecinema"}
+    },
+    "manifest_version": 2
+}
