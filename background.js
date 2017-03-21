@@ -3,14 +3,16 @@ if (typeof browser === 'undefined') {
   this.browser = chrome
 };
 
-var cinemaModeEnabled = true;
 
 var cruftedUrlPattern = /^(https?):\/\/(?:.+\.)youtube\.com\/watch\?.*v=([^&#]+)/;
 var embeddableUrlPattern = /^(https?):\/\/(?:.+\.)youtube\.com\/embed\/([^&?#]+)/;
 
+// Keep a set of tabIds for which the user disabled the cinema mode (with the pageAction button)
+var tabsWithCinemaModeDisabled = {};
+
 // Turn a video url into its embeddable (full-window) version (and vice versa, if bothDirections==true).
-function makeNewUrl(url, bothDirections) {
-  if (cinemaModeEnabled) {
+function makeNewUrl(tabId, url, bothDirections) {
+  if (!tabsWithCinemaModeDisabled[tabId]) {
     var match = url.match(cruftedUrlPattern);
     if (!match)
       return;
@@ -31,7 +33,7 @@ function makeNewUrl(url, bothDirections) {
 
 // Redirect crufted videos to their full-window version.
 function onBeforeRequestListener(details) {
-  var newUrl = makeNewUrl(details.url, false)
+  var newUrl = makeNewUrl(details.tabId, details.url, false)
 
   // From the embed, enable one to follow the "watch on YouTube" link (on browsers that pass originUrl)
   if (newUrl === details.originUrl)
@@ -67,12 +69,12 @@ function maybeShowPageAction(tabId, url) {
 function handlePageAction(tab) {
   var matchEmbeddable = tab.url.match(embeddableUrlPattern);
   if (matchEmbeddable)
-    cinemaModeEnabled = false;
+    tabsWithCinemaModeDisabled[tab.id] = true;
   else
-    cinemaModeEnabled = true;
+    delete tabsWithCinemaModeDisabled[tab.id];
 
   // Relocate this page to reflect the new mode.
-  var newUrl = makeNewUrl(tab.url, true)
+  var newUrl = makeNewUrl(tab.id, tab.url, true)
   if (newUrl)
     browser.tabs.update(tab.id, {url: newUrl});
 }
