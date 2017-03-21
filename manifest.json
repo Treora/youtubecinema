@@ -9,6 +9,12 @@
         "webRequest",
         "webRequestBlocking"
     ],
+    "icons": {
+        "19": "img/icon19.png",
+        "38": "img/icon38.png",
+        "48": "img/icon48.png",
+        "96": "img/icon96.png"
+    },
     "applications": {
         "gecko": {"id": "youtubecinema@youtubecinema"}
     },
