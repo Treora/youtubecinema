@@ -50,20 +50,25 @@ browser.webRequest.onBeforeRequest.addListener(
 
 
 // Show the pageAction button if looking at a video (either with or without cruft).
-browser.webNavigation.onCommitted.addListener(function (details) {maybeShowPageAction(details.tabId, details.url);});
-browser.webNavigation.onHistoryStateUpdated.addListener(function (details) {maybeShowPageAction(details.tabId, details.url);});
+browser.webNavigation.onCommitted.addListener(handleNavigation);
+browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
 
-function maybeShowPageAction(tabId, url) {
-  var matchEmbeddable = url.match(embeddableUrlPattern);
-  var matchCruft = url.match(cruftedUrlPattern);
+function handleNavigation(details) {
+  // Ignore pages inside frames.
+  if (details.frameId !== 0)
+    return;
+
+  // Check if the page is a youtube video (either with or without cruft)
+  var matchEmbeddable = details.url.match(embeddableUrlPattern);
+  var matchCruft = details.url.match(cruftedUrlPattern);
   if (matchEmbeddable || matchCruft) {
-    browser.pageAction.show(tabId);
+    // Show the pageAction button.
+    browser.pageAction.show(details.tabId);
     // In Chrome|ium, listeners stay across page changes, in Firefox they don't. So check first.
     if (!browser.pageAction.onClicked.hasListener(handlePageAction))
       browser.pageAction.onClicked.addListener(handlePageAction);
   }
 }
-
 
 // Enable/Disable cinema mode when the pageAction button is clicked.
 function handlePageAction(tab) {
@@ -78,4 +83,3 @@ function handlePageAction(tab) {
   if (newUrl)
     browser.tabs.update(tab.id, {url: newUrl});
 }
-
