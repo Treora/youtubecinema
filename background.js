@@ -1,45 +1,80 @@
 // Be compatible with Chrome|ium. We do not need the full webextension-polyfill.
 if (typeof browser === 'undefined') {
-  this.browser = chrome
-};
-
-
-var cruftedUrlPattern = /^(https?):\/\/(?:.+\.)youtube\.com\/watch\?.*v=([^&#]+)/;
-var embeddableUrlPattern = /^(https?):\/\/(?:.+\.)youtube\.com\/embed\/([^&?#]+)/;
+  this.browser = chrome;
+}
 
 // Keep a set of tabIds for which the user disabled the cinema mode (with the pageAction button)
 var tabsWithCinemaModeDisabled = {};
 
-// Turn a video url into its embeddable (full-window) version (and vice versa, if bothDirections==true).
-function makeNewUrl(tabId, url, bothDirections) {
-  if (!tabsWithCinemaModeDisabled[tabId]) {
-    var match = url.match(cruftedUrlPattern);
-    if (!match)
-      return;
-    var scheme = match[1];
-    var videoId = match[2];
-    return scheme + '://www.youtube.com/embed/' + videoId + '?rel=0&autoplay=1';
+function hasCinemaModeEnabled(tabId) {
+  return !tabsWithCinemaModeDisabled[tabId];
+}
+
+// Our request filters should make use of this test unnecessary, but I prefer to keep it explicit.
+function isYoutube(url) {
+  return new URL(url).hostname.endsWith('.youtube.com');
+}
+
+function isEmbeddedVideo(url) {
+  return (
+    isYoutube(url)
+    && new URL(url).pathname.startsWith('/embed/')
+  );
+}
+
+function isCruftedVideo(url) {
+  return (
+    isYoutube(url)
+    && new URL(url).pathname === '/watch'
+  );
+}
+
+function cruftedToEmbeddableVideoUrl(url) {
+  url = new URL(url);
+  var videoId = url.searchParams.get('v');
+  url.pathname = '/embed/' + videoId;
+  url.searchParams.delete('v');
+  url.searchParams.set('rel', '0'); // no suggestions after my video, please.
+  url.searchParams.set('autoplay', '1');
+  return url.href;
+}
+
+function embeddableToCruftedVideoUrl(url) {
+  url = new URL(url);
+  var videoId = url.pathname.match(/\/embed\/(.*)/)[1];
+  url.pathname = '/watch';
+  url.searchParams.set('v', videoId);
+  url.searchParams.delete('rel');
+  url.searchParams.delete('autoplay');
+  return url.href;
+}
+
+// Turn a video url into its embeddable (full-window) version, or vice versa if not in cinema mode.
+function makeNewUrl(url, cinemaModeEnabled) {
+  if (cinemaModeEnabled) {
+    if (isCruftedVideo(url)) {
+      return cruftedToEmbeddableVideoUrl(url);
+    }
   }
-  else if (bothDirections) {
-    var match = url.match(embeddableUrlPattern);
-    if (!match)
-      return;
-    var scheme = match[1];
-    var videoId = match[2];
-    return scheme + '://www.youtube.com/watch?v=' + videoId;
+  else {
+    if (isEmbeddedVideo(url)) {
+      return embeddableToCruftedVideoUrl(url);
+    }
   }
+  return undefined;
 }
 
 
 // Redirect crufted videos to their full-window version.
 function onBeforeRequestListener(details) {
-  var newUrl = makeNewUrl(details.tabId, details.url, false)
+  if (hasCinemaModeEnabled(details.tabId)) {
+    var newUrl = makeNewUrl(details.url, true);
 
-  // From the embed, enable one to follow the "watch on YouTube" link (on browsers that pass originUrl)
-  if (newUrl === details.originUrl)
-    return
+    // Return if we were not visiting a embedded youtube video
+    if (newUrl === undefined) return;
 
-  return {redirectUrl: newUrl};
+    return {redirectUrl: newUrl};
+  }
 }
 
 browser.webRequest.onBeforeRequest.addListener(
@@ -50,18 +85,17 @@ browser.webRequest.onBeforeRequest.addListener(
 
 
 // Show the pageAction button if looking at a video (either with or without cruft).
-browser.webNavigation.onCommitted.addListener(handleNavigation);
-browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation);
+var youtubeUrlFilter = {url: [{hostSuffix: '.youtube.com'}]}
+browser.webNavigation.onCommitted.addListener(handleNavigation, youtubeUrlFilter);
+browser.webNavigation.onHistoryStateUpdated.addListener(handleNavigation, youtubeUrlFilter);
 
 function handleNavigation(details) {
-  // Ignore pages inside frames.
-  if (details.frameId !== 0)
+  if (details.frameId !== 0) {
     return;
+  }
 
-  // Check if the page is a youtube video (either with or without cruft)
-  var matchEmbeddable = details.url.match(embeddableUrlPattern);
-  var matchCruft = details.url.match(cruftedUrlPattern);
-  if (matchEmbeddable || matchCruft) {
+  // If we are on youtube, show the button.
+  if (isYoutube(details.url)) {
     // Show the pageAction button.
     browser.pageAction.show(details.tabId);
     // In Chrome|ium, listeners stay across page changes, in Firefox they don't. So check first.
@@ -72,14 +106,20 @@ function handleNavigation(details) {
 
 // Enable/Disable cinema mode when the pageAction button is clicked.
 function handlePageAction(tab) {
-  var matchEmbeddable = tab.url.match(embeddableUrlPattern);
-  if (matchEmbeddable)
+  if (
+    hasCinemaModeEnabled(tab.id)
+    // When viewing an embedded video with cinema mode disabled, behave as if it was enabled.
+    || isEmbeddedVideo(tab.url)
+  ) {
+    // Disable cinema mode.
     tabsWithCinemaModeDisabled[tab.id] = true;
-  else
+  } else {
+    // Enable cinema mode.
     delete tabsWithCinemaModeDisabled[tab.id];
+  }
 
   // Relocate this page to reflect the new mode.
-  var newUrl = makeNewUrl(tab.id, tab.url, true)
+  var newUrl = makeNewUrl(tab.url, hasCinemaModeEnabled(tab.id));
   if (newUrl)
     browser.tabs.update(tab.id, {url: newUrl});
 }
