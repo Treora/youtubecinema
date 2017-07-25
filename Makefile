@@ -1,8 +1,7 @@
 build: fx-build cr-build
 
 fx-build:
-	web-ext -a .. build
-	rename -f "s/\.zip$$/.xpi/" ../youtubecinema-*.zip
+	web-ext -s ./extension -a ./dist build
 
 cr-build:
-	(cd .. && chromium-browser --pack-extension=youtubecinema --pack-extension-key=youtubecinema.pem)
+	crx pack ./extension -o ./dist/youtube-cinema.crx -p .chrome-extension-key.pem
