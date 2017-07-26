@@ -7,11 +7,11 @@
     "page_action": {
         "browser_style": true,
         "default_icon": {
-            "19": "img/icon19.png",
-            "38": "img/icon38.png",
-            "48": "img/icon48.png",
-            "96": "img/icon96.png",
-            "128": "img/icon128.png"
+            "19": "img/icon_active/19.png",
+            "38": "img/icon_active/38.png",
+            "48": "img/icon_active/48.png",
+            "96": "img/icon_active/96.png",
+            "128": "img/icon_active/128.png"
         }
     },
     "permissions": [
@@ -22,11 +22,11 @@
         "webRequestBlocking"
     ],
     "icons": {
-        "19": "img/icon19.png",
-        "38": "img/icon38.png",
-        "48": "img/icon48.png",
-        "96": "img/icon96.png",
-        "128": "img/icon128.png"
+        "19": "img/icon_active/19.png",
+        "38": "img/icon_active/38.png",
+        "48": "img/icon_active/48.png",
+        "96": "img/icon_active/96.png",
+        "128": "img/icon_active/128.png"
     },
     "applications": {
         "gecko": {"id": "youtubecinema@youtubecinema"}

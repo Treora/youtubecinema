@@ -10,6 +10,14 @@ function hasCinemaModeEnabled(tabId) {
   return !tabsWithCinemaModeDisabled[tabId];
 }
 
+function appearsToHaveCinemaModeEnabled(tabId, url) {
+  return (
+    hasCinemaModeEnabled(tabId)
+    // When viewing an embedded video with cinema mode disabled, behave as if it was enabled.
+    || isEmbeddedVideo(url)
+  );
+}
+
 // Our request filters should make use of this test unnecessary, but I prefer to keep it explicit.
 function isYoutube(url) {
   return new URL(url).hostname.endsWith('.youtube.com');
@@ -98,6 +106,8 @@ function handleNavigation(details) {
   if (isYoutube(details.url)) {
     // Show the pageAction button.
     browser.pageAction.show(details.tabId);
+    setIconActive(details.tabId, appearsToHaveCinemaModeEnabled(details.tabId, details.url))
+
     // In Chrome|ium, listeners stay across page changes, in Firefox they don't. So check first.
     if (!browser.pageAction.onClicked.hasListener(handlePageAction))
       browser.pageAction.onClicked.addListener(handlePageAction);
@@ -106,20 +116,40 @@ function handleNavigation(details) {
 
 // Enable/Disable cinema mode when the pageAction button is clicked.
 function handlePageAction(tab) {
-  if (
-    hasCinemaModeEnabled(tab.id)
-    // When viewing an embedded video with cinema mode disabled, behave as if it was enabled.
-    || isEmbeddedVideo(tab.url)
-  ) {
-    // Disable cinema mode.
-    tabsWithCinemaModeDisabled[tab.id] = true;
-  } else {
-    // Enable cinema mode.
+  var enable = !appearsToHaveCinemaModeEnabled(tab.id, tab.url)
+  if (enable) {
     delete tabsWithCinemaModeDisabled[tab.id];
+  } else {
+    tabsWithCinemaModeDisabled[tab.id] = true;
   }
+
+  setIconActive(tab.id, enable);
 
   // Relocate this page to reflect the new mode.
   var newUrl = makeNewUrl(tab.url, hasCinemaModeEnabled(tab.id));
   if (newUrl)
     browser.tabs.update(tab.id, {url: newUrl});
+}
+
+
+var activeIcons = {
+  '19': '/img/icon_active/19.png',
+  '38': '/img/icon_active/38.png',
+  '48': '/img/icon_active/48.png',
+  '96': '/img/icon_active/96.png',
+  '128': '/img/icon_active/128.png',
+}
+var inactiveIcons = {
+  '19': '/img/icon_inactive/19.png',
+  '38': '/img/icon_inactive/38.png',
+  '48': '/img/icon_inactive/48.png',
+  '96': '/img/icon_inactive/96.png',
+  '128': '/img/icon_inactive/128.png',
+}
+
+function setIconActive(tabId, active) {
+  browser.pageAction.setIcon({
+    tabId: tabId,
+    path: active ? activeIcons : inactiveIcons,
+  })
 }
