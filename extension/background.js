@@ -41,9 +41,12 @@ function cruftedToEmbeddableVideoUrl(url) {
   url = new URL(url);
   var videoId = url.searchParams.get('v');
   url.pathname = '/embed/' + videoId;
+  // API docs: https://developers.google.com/youtube/player_parameters
   url.searchParams.delete('v');
   url.searchParams.set('rel', '0'); // no suggestions after my video, please.
-  url.searchParams.set('autoplay', '1');
+  url.searchParams.set('iv_load_policy', '3'); // no video annotations, thanks.
+  url.searchParams.set('modestbranding', '1'); // no YouTube branding either.
+  url.searchParams.set('autoplay', '1'); // do play my video! :)
   return url.href;
 }
 
@@ -53,6 +56,8 @@ function embeddableToCruftedVideoUrl(url) {
   url.pathname = '/watch';
   url.searchParams.set('v', videoId);
   url.searchParams.delete('rel');
+  url.searchParams.delete('modestbranding');
+  url.searchParams.delete('iv_load_policy');
   url.searchParams.delete('autoplay');
   return url.href;
 }
