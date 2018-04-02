@@ -37,12 +37,38 @@ function isCruftedVideo(url) {
   );
 }
 
+function timeStringToSeconds(t) {
+  // If t is an integer, it indicates the number of seconds.
+  if (/^\d+$/.test(t)) {
+    return t;
+  }
+  // If t looks like e.g. 1h20m30s, convert to seconds.
+  match = t.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?/)
+  if (match) {
+    var seconds = (
+      (Number(match[3]) || 0)
+      + (Number(match[2]) || 0) * 60
+      + (Number(match[1]) || 0) * 3600
+    )
+    return seconds.toString();
+  }
+  // No idea. Let's just return it.
+  return t
+}
+
 function cruftedToEmbeddableVideoUrl(url) {
   url = new URL(url);
+  // Move the video's id into the path
   var videoId = url.searchParams.get('v');
   url.pathname = '/embed/' + videoId;
-  // API docs: https://developers.google.com/youtube/player_parameters
   url.searchParams.delete('v');
+  // Rename start time parameter if present, converting to seconds if needed.
+  var startTime = url.searchParams.get('t');
+  if (startTime !== null) {
+    url.searchParams.set('start', timeStringToSeconds(startTime))
+    url.searchParams.delete('t')
+  }
+  // Tweak some other settings for pleasant viewing. See API docs: https://developers.google.com/youtube/player_parameters
   url.searchParams.set('rel', '0'); // no suggestions after my video, please.
   url.searchParams.set('iv_load_policy', '3'); // no video annotations, thanks.
   url.searchParams.set('modestbranding', '1'); // no YouTube branding either.
@@ -52,9 +78,17 @@ function cruftedToEmbeddableVideoUrl(url) {
 
 function embeddableToCruftedVideoUrl(url) {
   url = new URL(url);
+  // Move the video's id into the query parameters.
   var videoId = url.pathname.match(/\/embed\/(.*)/)[1];
   url.pathname = '/watch';
   url.searchParams.set('v', videoId);
+  // Rename start time parameter if present.
+  var startTime = url.searchParams.get('start');
+  if (startTime !== null) {
+    url.searchParams.set('t', startTime)
+    url.searchParams.delete('start')
+  }
+  // Remove added settings specific to embedded videos.
   url.searchParams.delete('rel');
   url.searchParams.delete('modestbranding');
   url.searchParams.delete('iv_load_policy');
