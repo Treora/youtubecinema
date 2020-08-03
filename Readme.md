@@ -1,5 +1,7 @@
 # YoutubeCinema
 
+Moved: https://code.treora.com/gerben/youtubecinema
+
 WebExtension to watch YouTube videos without the distracting cruft around it, in the full window.
 
 ![](concept.png)
